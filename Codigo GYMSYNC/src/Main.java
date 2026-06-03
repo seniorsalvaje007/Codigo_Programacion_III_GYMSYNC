@@ -1,41 +1,167 @@
-
-import com.gymsync.model.Atleta;
-import com.gymsync.model.ClaseCrossFit;
-import com.gymsync.model.NivelAtleta;
+import com.gymsync.model.*;
 import com.gymsync.repository.AtletaRepositorio;
-import com.gymsync.repository.ClaseRepository;
+import com.gymsync.service.AuthService;
 
-import java.time.LocalDateTime;
+import java.sql.SQLOutput;
+import java.util.Optional;
+import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
 
         AtletaRepositorio atletaRepo = new AtletaRepositorio();
-        ClaseRepository claseRepo = new ClaseRepository();
+        AuthService authService = new AuthService(atletaRepo);
 
-        Atleta elias = new Atleta("1723456789", "Elias Armas", NivelAtleta.INTERMEDIO, "ANUAL", true);
-        Atleta demian = new Atleta("1798765432", "Demian Durand", NivelAtleta.AVANZADO, "MENSUAL", true);
+        boolean salir = false;
 
-        atletaRepo.guardarAtleta(elias);
-        atletaRepo.guardarAtleta(demian);
-        System.out.println("Atletas registrados con éxito. Total en memoria: " + atletaRepo.obtenerTotalDeAtletas());
+        while (!salir) {
+            System.out.println("\n---GYMSYNC---");
+            System.out.println("1. Iniciar sesion");
+            System.out.println("2. Registrarse (Crear nueva cuenta)");
+            System.out.println("3. Salir del sistema");
+            System.out.print(">");
+            String opc = scanner.nextLine();
 
-        LocalDateTime horaLunes7AM = LocalDateTime.of(2026, 6, 1, 7, 0);
-        LocalDateTime horaLunes8AM = LocalDateTime.of(2026, 6, 1, 8, 0);
+            switch (opc) {
+                case "1":
+                    System.out.println("\n---Inicio de sesion---");
+                    System.out.print("Correo: ");
+                    String correoLogin = scanner.nextLine();
+                    System.out.print("Contraseña: ");
+                    String passLogin = scanner.nextLine();
 
-        ClaseCrossFit clase1 = new ClaseCrossFit("C1", "Máximo de Snatch", horaLunes8AM, 2, "Coach Isaac");
-        ClaseCrossFit clase2 = new ClaseCrossFit("C2", "WOD de Resistencia", horaLunes7AM, 15, "Coach Anthony");
+                    if (authService.iniciarSesion(correoLogin, passLogin)) {
+                        if (authService.tienePermiso(Rol.ATLETA)) {
+                            menuAtletas(scanner, authService);
+                        } else if (authService.tienePermiso(Rol.COACH)) {
+                            menuCoach(scanner, authService);
+                        }
+                    }
 
-        claseRepo.programarClase(clase1);
-        claseRepo.programarClase(clase2);
+                    break;
 
-        ClaseCrossFit claseDuplicada = new ClaseCrossFit("C3", "WOD Clon", horaLunes8AM, 10, "Coach Garcés");
-        claseRepo.programarClase(claseDuplicada); // Debería pintar el mensaje de error en consola
+                case "2":
+                    System.out.println("---Registro de cuenta---");
+                    System.out.println("1. Soy atleta");
+                    System.out.println("2. Soy coach");
+                    System.out.print("Selecciona tu rol: ");
+                    String rol = scanner.nextLine();
 
-        System.out.println("\n=== Agenda Cronológica Automatizada ===");
-        for (ClaseCrossFit c : claseRepo.agendaOrdenada()) {
-            System.out.println("[" + c.getHorario() + "] - " + c.getNombreWOD() + " con " + c.getCoachAsignado());
+                    if (rol.equals("1")) {
+                        System.out.print("Ingresa tu nombre completo: ");
+                        String nombre = scanner.nextLine();
+                        System.out.print("Ingresa tu correo electronico: ");
+                        String correo = scanner.nextLine();
+                        System.out.print("Cree una contraseña segura: ");
+                        String contra = scanner.nextLine();
+                        System.out.println("Seleccione su nivel: ");
+                        System.out.println("1. Principiante");
+                        System.out.println("2. Intermedio");
+                        System.out.println("3. Avanzado");
+                        System.out.print(">");
+                        String nivel = scanner.nextLine();
+
+                        NivelAtleta nivelFinal = NivelAtleta.PRINCIPIANTE;
+                        if (nivel.equals("2")) {nivelFinal =NivelAtleta.INTERMEDIO;}
+                        if (nivel.equals("3")) {nivelFinal =NivelAtleta.AVANZADO;}
+
+                        System.out.println("Escoga su plan de membresia: ");
+                        System.out.println("1. Mensual");
+                        System.out.println("2. Trimestral");
+                        System.out.println("3. Anual");
+                        System.out.print(">");
+                        String tipoMembresia = scanner.nextLine();
+
+                        String membresiaFinal = "MENSUAL";
+                        if (tipoMembresia.equals("2")) {membresiaFinal = "TRIMESTRAL";}
+                        if (tipoMembresia.equals("3")) {membresiaFinal = "ANUAL";}
+
+                        Atleta nuevoAtleta = atletaRepo.registrarNuevoAtleta(nombre, correo, nivelFinal, membresiaFinal, true);
+                        authService.registrarUsuario(correo, contra, Rol.ATLETA);
+
+                        System.out.println("!Registro correctamente! Bienvenido a la comunidad de GYMSYNC");
+                        System.out.println("Tu codigo de atleta es " + nuevoAtleta.id());
+                    } else if (rol.equals("2")) {
+                        System.out.print("Ingrese su correo de coach: ");
+                        String correoCoach = scanner.nextLine();
+                        System.out.print("Cree su contraseña: ");
+                        String contraCoach = scanner.nextLine();
+
+                        authService.registrarUsuario(correoCoach, contraCoach, Rol.COACH);
+                        System.out.println("!Cuenta de coach rcreada exitosamente!");
+                    } else {
+                        System.out.println("Opcion de registro invalido");
+                    }
+
+                    break;
+
+                case "3":
+                    salir = true;
+                    System.out.println("Saliendo del sistema....");
+                    break;
+
+                default:
+                    System.out.println("Opcion invalida");
+
+            }
+        }
+    }
+
+    public static void menuAtletas (Scanner scanner, AuthService authService) {
+        boolean enMenu = true;
+        Optional<Atleta> atletaActual = authService.obtenerAtletaLogueado();
+        String nombreAtleta = atletaActual.map(Atleta::nombre).orElse("Atleta");
+
+        while (enMenu) {
+            System.out.println("\n---Menu Atleta---");
+            System.out.println("1. Ver mis datos de perfil");
+            System.out.println("2. Cerrar sesion y volver al inicio de sesion");
+            System.out.print(">");
+            String opc = scanner.nextLine();
+
+            if (opc.equals("1")) {
+                atletaActual.ifPresent(atleta -> {
+                    System.out.println("\n---INFORMACION DE ATLETA---");
+                    System.out.println("ID " + atleta.id());
+                    System.out.println("Nombre: " + atleta.nombre());
+                    System.out.println("Correo: " + atleta.correo());
+                    System.out.println("Nivel: " + atleta.nivel());
+                    System.out.println("Membresia: " + atleta.tipoMembresia());
+                    System.out.println("Estado de membresia: " + (atleta.pagoActivo() ? "ACTIVO":"NO ACTIVO"));
+                });
+            }else if (opc.equals("2")) {
+                authService.cerrarSesion();
+                enMenu = false;
+            } else {
+                System.out.println("Opcion no valida");
+            }
+        }
+    }
+
+    public static void menuCoach (Scanner scanner, AuthService authService) {
+        boolean enMenu = true;
+
+        while (enMenu) {
+            System.out.println("\n---Menu Coach---");
+            System.out.println("1. Gestionar clases(Bajo contruccion)");
+            System.out.println("2. Cerrar Sesion y volver al inicio de sesion");
+            System.out.print("> ");
+            String opc = scanner.nextLine();
+
+            if (opc.equals("1")) {
+                //En esta parte va la logica de treemap para organizar y proyectar horarios creados en el dia
+            } else if (opc.equals("2")) {
+                authService.cerrarSesion();
+                enMenu = false;
+            } else {
+                System.out.println("Opcion no valida");
+            }
+
         }
 
     }
+
+
+
 }
