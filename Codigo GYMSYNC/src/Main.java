@@ -1,8 +1,10 @@
 import com.gymsync.model.*;
 import com.gymsync.repository.AtletaRepositorio;
+import com.gymsync.repository.ClaseRepository;
 import com.gymsync.service.AuthService;
 
 import java.sql.SQLOutput;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.Scanner;
 
@@ -11,6 +13,7 @@ public class Main {
         Scanner scanner = new Scanner(System.in);
 
         AtletaRepositorio atletaRepo = new AtletaRepositorio();
+        ClaseRepository claseRepo = new ClaseRepository();
         AuthService authService = new AuthService(atletaRepo);
 
         boolean salir = false;
@@ -35,7 +38,7 @@ public class Main {
                         if (authService.tienePermiso(Rol.ATLETA)) {
                             menuAtletas(scanner, authService);
                         } else if (authService.tienePermiso(Rol.COACH)) {
-                            menuCoach(scanner, authService);
+                            menuCoach(scanner, authService, claseRepo);
                         }
                     }
 
@@ -139,7 +142,7 @@ public class Main {
         }
     }
 
-    public static void menuCoach (Scanner scanner, AuthService authService) {
+    public static void menuCoach (Scanner scanner, AuthService authService, ClaseRepository claseRepo) {
         boolean enMenu = true;
 
         while (enMenu) {
@@ -151,6 +154,41 @@ public class Main {
 
             if (opc.equals("1")) {
                 //En esta parte va la logica de treemap para organizar y proyectar horarios creados en el dia
+                System.out.println("\n---ASIGNACION DE HORARIOS---");
+                System.out.print("Para que dia de este mes le gustaria programar?");
+                int dia = Integer.parseInt(scanner.nextLine());
+
+                System.out.println("\nESTADO DEL DIA " + dia + "(05:00 a 22:00)");
+                System.out.println("--------------------------------------------------");
+                mostrarGrillaDiaria(dia, claseRepo, -1);
+
+                System.out.print("\nEliga una hora de inicio(del 5 al 22)");
+                int hora = Integer.parseInt(scanner.nextLine());
+
+                if (hora < 5 || hora > 22) {
+                    System.out.println("\nEl horario operativo del Box es de 05:00am a 22:00pm");
+                } else {
+                    System.out.print("\nNombre del WOD: ");
+                    String nombreWOD = scanner.nextLine();
+
+                    System.out.print("Ingrese el cupo maximo de atletas: ");
+                    int cupo = Integer.parseInt(scanner.nextLine());
+
+                    System.out.println("Nombre del coach asginado: ");
+                    String nombreCoach = scanner.nextLine();
+
+                    LocalDateTime horaExacta = LocalDateTime.of(2026, 6, dia, hora, 0);
+                    ClaseCrossFit nuevaClase = new ClaseCrossFit("WOD-" + System.currentTimeMillis(), nombreWOD, horaExacta, cupo, nombreCoach);
+
+                    if (claseRepo.programarClase(nuevaClase)) {
+                        System.out.println("Clase programada con exito");
+                        System.out.println("Asi quedo tu agenda");
+                        mostrarGrillaDiaria(dia, claseRepo, hora);
+                    } else {
+                        System.out.println("Ese bloque de horario ya se encuentra ocupado");
+                    }
+                }
+
             } else if (opc.equals("2")) {
                 authService.cerrarSesion();
                 enMenu = false;
@@ -162,6 +200,35 @@ public class Main {
 
     }
 
+    private static void mostrarGrillaDiaria (int dia, ClaseRepository claseRepo, int horaRecienAgregada) {
+        String RESET = "\u001B[0m";
+        String VERDE = "\u001B[32m";
+        String ROJO = "\u001B[31m";
 
+        for (int i = 5; i <= 21; i++) {
+            boolean ocupado = false;
+            String nombreWOD = "";
+
+            for (ClaseCrossFit c : claseRepo.agendaOrdenada()) {
+                if (c.getHorario().getDayOfMonth() == dia && c.getHorario().getHour() == i) {
+                    ocupado = true;
+                    nombreWOD = c.getNombreWOD();
+                    break;
+                }
+            }
+
+            String formatoHora = String.format("[%02d:00 - %02d:00]", i, i + 1);
+
+            if (ocupado) {
+                if (i == horaRecienAgregada) {
+                    System.out.println(VERDE + " 🟢 " + formatoHora + " -> NUEVO REGISTRO: " + nombreWOD + RESET);
+                } else {
+                    System.out.println(ROJO + " 🔴 " + formatoHora + " -> Ocupado (" + nombreWOD + ")" + RESET);
+                }
+            } else {
+                System.out.println(" ⚪ " + formatoHora + " -> Disponible");
+            }
+        }
+    }
 
 }

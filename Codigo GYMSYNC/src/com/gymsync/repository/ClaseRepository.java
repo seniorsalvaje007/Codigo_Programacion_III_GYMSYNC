@@ -18,6 +18,7 @@ public class ClaseRepository {
             System.out.println("Conflicto de horario ya existe una clase programada en ese bloque de horario");
             return false;
         }
+
         this.agendaSemanal.put(nuevaClase.getHorario(), nuevaClase);
         return true;
     }
