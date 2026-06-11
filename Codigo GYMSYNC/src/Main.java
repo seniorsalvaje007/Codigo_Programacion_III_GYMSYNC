@@ -3,7 +3,6 @@ import com.gymsync.repository.AtletaRepositorio;
 import com.gymsync.repository.ClaseRepository;
 import com.gymsync.service.AuthService;
 
-import java.sql.SQLOutput;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.Scanner;
@@ -36,7 +35,7 @@ public class Main {
 
                     if (authService.iniciarSesion(correoLogin, passLogin)) {
                         if (authService.tienePermiso(Rol.ATLETA)) {
-                            menuAtletas(scanner, authService);
+                            menuAtletas(scanner, authService, claseRepo);
                         } else if (authService.tienePermiso(Rol.COACH)) {
                             menuCoach(scanner, authService, claseRepo);
                         }
@@ -111,15 +110,18 @@ public class Main {
         }
     }
 
-    public static void menuAtletas (Scanner scanner, AuthService authService) {
+    public static void menuAtletas (Scanner scanner, AuthService authService, ClaseRepository claseRepo) {
         boolean enMenu = true;
         Optional<Atleta> atletaActual = authService.obtenerAtletaLogueado();
         String nombreAtleta = atletaActual.map(Atleta::nombre).orElse("Atleta");
 
+        java.time.format.DateTimeFormatter formatoVisual = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+
         while (enMenu) {
             System.out.println("\n---Menu Atleta---");
             System.out.println("1. Ver mis datos de perfil");
-            System.out.println("2. Cerrar sesion y volver al inicio de sesion");
+            System.out.println("2. Ver calendario de clases e Inscribirme");
+            System.out.println("3. Cerrar sesion y volver al inicio de sesion");
             System.out.print(">");
             String opc = scanner.nextLine();
 
@@ -133,7 +135,37 @@ public class Main {
                     System.out.println("Membresia: " + atleta.tipoMembresia());
                     System.out.println("Estado de membresia: " + (atleta.pagoActivo() ? "ACTIVO":"NO ACTIVO"));
                 });
-            }else if (opc.equals("2")) {
+            } else if (opc.equals("2")) {
+                System.out.println("\n---CALENDARIO DE CLASES DISPONIBLES---");
+                if (claseRepo.agendaOrdenada().isEmpty()) {
+                    System.out.println("No existen clases programadas por el Box actualmente");
+                } else {
+                    java.util.List<ClaseCrossFit> listaClases = new java.util.ArrayList<>(claseRepo.agendaOrdenada());
+
+                    for (int i = 0; i < listaClases.size(); i++) {
+                        ClaseCrossFit c = listaClases.get(i);
+                        int ocupados = c.getAtletasInscritos().size();
+
+                        System.out.println((i + 1) + ". " + c.getHorario().format(formatoVisual) +
+                                " | WOD: " + c.getNombreWOD() +
+                                " | Coach: " + c.getCoachAsignado() +
+                                " | Cupos: [" + ocupados + "/" + c.getCupoMaximo() + "]");
+                    }
+
+                    System.out.println("\nIngrese el numero de la clase a la que desea unirse o '0' para cancelar la incripcion: ");
+                    int seleccion = Integer.parseInt(scanner.nextLine());
+
+                    if (seleccion > 0 && seleccion <= listaClases.size()) {
+                        ClaseCrossFit claseElegida = listaClases.get(seleccion - 1);
+                        atletaActual.ifPresent(atleta -> {
+                            claseElegida.inscribirAtleta(atleta);
+                        });
+                    } else if (seleccion != 0) {
+                        System.out.println("Opcion invalida");
+                    }
+                }
+
+            }else if (opc.equals("3")) {
                 authService.cerrarSesion();
                 enMenu = false;
             } else {
