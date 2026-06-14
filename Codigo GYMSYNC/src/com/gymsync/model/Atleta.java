@@ -1,11 +1,14 @@
 package com.gymsync.model;
 
+import java.time.LocalDate;
+
 public record Atleta(String id,
                      String nombre,
                      String correo,
                      NivelAtleta nivel,
                      String tipoMembresia,
-                     boolean pagoActivo) {
+                     boolean pagoActivo,
+                     LocalDate fechaVencimiento) {
 
     public Atleta {
         if (id == null || id.isBlank() || correo == null || correo.isBlank()) {

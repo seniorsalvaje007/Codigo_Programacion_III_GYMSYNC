@@ -2,8 +2,9 @@ package com.gymsync.repository;
 
 import com.gymsync.model.Atleta;
 import com.gymsync.model.NivelAtleta;
+
+import java.time.LocalDate;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
 
 public class AtletaRepositorio {
@@ -17,17 +18,22 @@ public class AtletaRepositorio {
         this.atletasPorCorreo = new HashMap<>();
     }
 
-    public Atleta registrarNuevoAtleta (String nombre, String correo, NivelAtleta nivel, String tipoMembresia, boolean pagoActivo) {
+    public Atleta registrarNuevoAtleta (String nombre, String correo, NivelAtleta nivel, String tipoMembresia, boolean pagoActivo, LocalDate fechaVencimiento) {
         contadorAtletas ++;
         String idGenerado = String.format("GS-%03d", contadorAtletas);
 
-        Atleta nuevoAtleta = new Atleta (idGenerado, nombre, correo, nivel, tipoMembresia, pagoActivo);
+        Atleta nuevoAtleta = new Atleta (idGenerado, nombre, correo, nivel, tipoMembresia, pagoActivo, fechaVencimiento);
 
         atletasPorId.put(nuevoAtleta.id(), nuevoAtleta);
         atletasPorCorreo.put(nuevoAtleta.correo(), nuevoAtleta);
 
         return nuevoAtleta;
 
+    }
+
+    public void actualizarAtleta (Atleta atletaActualizado) {
+        atletasPorId.put(atletaActualizado.id(), atletaActualizado);
+        atletasPorCorreo.put(atletaActualizado.correo(), atletaActualizado);
     }
 
     public Optional<Atleta> buscarPorId (String id) {return Optional.ofNullable(atletasPorId.get(id));}

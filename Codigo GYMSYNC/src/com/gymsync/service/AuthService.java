@@ -4,7 +4,6 @@ import com.gymsync.model.Usuario;
 import com.gymsync.model.Rol;
 import com.gymsync.model.Atleta;
 import com.gymsync.repository.AtletaRepositorio;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
