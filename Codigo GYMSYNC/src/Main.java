@@ -1,6 +1,8 @@
     import com.gymsync.model.*;
     import com.gymsync.repository.AtletaRepositorio;
     import com.gymsync.repository.ClaseRepository;
+    import com.gymsync.repository.EjercicioRepository;
+    import com.gymsync.repository.ProgresoRepository;
     import com.gymsync.service.AuthService;
     import java.time.LocalDate;
     import java.time.temporal.ChronoUnit;
@@ -17,6 +19,8 @@
             AtletaRepositorio atletaRepo = new AtletaRepositorio();
             ClaseRepository claseRepo = new ClaseRepository();
             AuthService authService = new AuthService(atletaRepo);
+            EjercicioRepository ejercicioRepo = new EjercicioRepository();
+            ProgresoRepository progresoRepo = new ProgresoRepository();
 
             boolean salir = false;
 
@@ -48,7 +52,7 @@
                                     if (diasRestantes <= 0) {
                                         pasarelaDePagos(scanner, atleta,atletaRepo, authService);
                                     } else {
-                                        menuAtletas(scanner, authService, claseRepo);
+                                        menuAtletas(scanner, authService, claseRepo, ejercicioRepo, progresoRepo);
                                     }
 
                                 });
@@ -130,7 +134,7 @@
             }
         }
 
-        public static void menuAtletas (Scanner scanner, AuthService authService, ClaseRepository claseRepo) {
+        public static void menuAtletas (Scanner scanner, AuthService authService, ClaseRepository claseRepo, EjercicioRepository ejercicioRepo, ProgresoRepository progresoRepo) {
             boolean enMenu = true;
             Optional<Atleta> atletaActual = authService.obtenerAtletaLogueado();
             String nombreAtleta = atletaActual.map(Atleta::nombre).orElse("Atleta");
@@ -141,7 +145,9 @@
                 System.out.println("\n---Menu Atleta---");
                 System.out.println("1. Ver mis datos de perfil");
                 System.out.println("2. Ver calendario de clases e Inscribirme");
-                System.out.println("3. Cerrar sesion y volver al inicio de sesion");
+                System.out.println("3. Registrar progreso");
+                System.out.println("4. Ver mi historial de progreso");
+                System.out.println("5. Cerrar sesion y volver al inicio de sesion");
                 System.out.print(">");
                 String opc = scanner.nextLine();
 
@@ -199,6 +205,59 @@
                     }
 
                 }else if (opc.equals("3")) {
+                    List<Ejercicio> catalogo = ejercicioRepo.obtenerTodos();
+
+                    System.out.println("DEBUG: El tamaño del catálogo es: " + catalogo.size());
+
+                    System.out.println("\n---SELECCIONE UN EJERCICIO---");
+                    for (int i = 0; i < catalogo.size(); i++) {
+                        System.out.println((i + 1) + ". " + catalogo.get(i).nombre());
+                    }
+
+                    System.out.println("Seleccione el numero del ejercicio: ");
+                    try {
+                        int seleccion = Integer.parseInt(scanner.nextLine()) - 1;
+
+                        if (seleccion >=0 && seleccion < catalogo.size()) {
+                            Ejercicio seleccionado = catalogo.get(seleccion);
+
+                            System.out.print("Peso logrado(kg): ");
+                            double peso = Double.parseDouble(scanner.nextLine());
+
+                            Progreso nuevo = new Progreso(seleccionado.nombre(), seleccionado.tipo(), peso, LocalDate.now());
+                            progresoRepo.registrarProgreso(atletaActual.get().id(), nuevo);
+                            System.out.println("Nuevo record registrado en " + seleccionado.nombre() + "!");
+                        } else {
+                            System.out.println("Numero fuera de rango");
+                        }
+                    }catch (NumberFormatException e) {
+                        System.out.println("Por favor ingrese un opcion valida");
+                    }
+
+
+                }else if (opc.equals("4")){
+                    List<Progreso> historial = progresoRepo.obtenerHistorial(atletaActual.get().id());
+
+                    if (historial.isEmpty()) {
+                        System.out.println("Aun no tienes records registrados");
+                    } else {
+                        System.out.println("---TU HISTORIAL DE RECORDS---");
+                        for (TipoEjercicio tipo: TipoEjercicio.values()) {
+                            boolean hayDatos = false;
+
+                            for (Progreso p:historial) {
+                                if (p.tipo() == tipo) {
+                                    if (!hayDatos) {
+                                        System.out.println("\n>> " + tipo + ":");
+                                        hayDatos = true;
+                                    }
+                                    System.out.println("   " + p.fecha() + " | " + p.nombre() + ": " + p.peso() + " kg");
+                                }
+                            }
+                        }
+                    }
+
+                }else if (opc.equals("5")) {
                     authService.cerrarSesion();
                     enMenu = false;
                 } else {
