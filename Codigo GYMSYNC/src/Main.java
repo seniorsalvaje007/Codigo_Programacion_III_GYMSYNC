@@ -1,9 +1,8 @@
     import com.gymsync.model.*;
-    import com.gymsync.repository.AtletaRepositorio;
-    import com.gymsync.repository.ClaseRepository;
-    import com.gymsync.repository.EjercicioRepository;
-    import com.gymsync.repository.ProgresoRepository;
+    import com.gymsync.repository.*;
     import com.gymsync.service.AuthService;
+
+    import java.sql.SQLOutput;
     import java.time.LocalDate;
     import java.time.temporal.ChronoUnit;
     import java.util.List;
@@ -12,7 +11,7 @@
     import java.util.Optional;
     import java.util.Scanner;
 
-    public class Main {
+    public class    Main {
         public static void main(String[] args) {
             Scanner scanner = new Scanner(System.in);
 
@@ -21,6 +20,7 @@
             AuthService authService = new AuthService(atletaRepo);
             EjercicioRepository ejercicioRepo = new EjercicioRepository();
             ProgresoRepository progresoRepo = new ProgresoRepository();
+            ReseñaRepository reseñaRepo = new ReseñaRepository();
 
             boolean salir = false;
 
@@ -52,7 +52,7 @@
                                     if (diasRestantes <= 0) {
                                         pasarelaDePagos(scanner, atleta,atletaRepo, authService);
                                     } else {
-                                        menuAtletas(scanner, authService, claseRepo, ejercicioRepo, progresoRepo);
+                                        menuAtletas(scanner, authService, claseRepo, ejercicioRepo, progresoRepo, reseñaRepo);
                                     }
 
                                 });
@@ -134,7 +134,7 @@
             }
         }
 
-        public static void menuAtletas (Scanner scanner, AuthService authService, ClaseRepository claseRepo, EjercicioRepository ejercicioRepo, ProgresoRepository progresoRepo) {
+        public static void menuAtletas (Scanner scanner, AuthService authService, ClaseRepository claseRepo, EjercicioRepository ejercicioRepo, ProgresoRepository progresoRepo, ReseñaRepository reseñaRepo) {
             boolean enMenu = true;
             Optional<Atleta> atletaActual = authService.obtenerAtletaLogueado();
             String nombreAtleta = atletaActual.map(Atleta::nombre).orElse("Atleta");
@@ -147,6 +147,7 @@
                 System.out.println("2. Ver calendario de clases e Inscribirme");
                 System.out.println("3. Registrar progreso");
                 System.out.println("4. Ver mi historial de progreso");
+                System.out.println("5. Calificar Coach");
                 System.out.println("5. Cerrar sesion y volver al inicio de sesion");
                 System.out.print(">");
                 String opc = scanner.nextLine();
@@ -258,6 +259,36 @@
                     }
 
                 }else if (opc.equals("5")) {
+                    List<String> listaCoaches = claseRepo.obtenerListaCompleta();
+
+                    if (listaCoaches.isEmpty()) {
+                        System.out.println("No se encontraron coaches registrados actualmente");
+                    } else {
+                        System.out.println("\n---Seleccione el coach a calificar---");
+                        for(int i = 0; i < listaCoaches.size(); i++) {
+                            System.out.println((i + 1) + ". " + listaCoaches.get(i));
+                        }
+
+                        System.out.print("Seleccione el numero del coach que desea calificar: ");
+                        int sel = Integer.parseInt(scanner.nextLine()) - 1;
+
+                        if (sel >= 0 && sel < listaCoaches.size()) {
+                            String coachElegido = listaCoaches.get(sel);
+
+                            System.out.print("Calificacion (1-5 estrellas): ");
+                            int estrellas = Integer.parseInt(scanner.nextLine());
+
+                            System.out.print("Tu comentario: ");
+                            String comentario = scanner.nextLine();
+
+                            Reseña nueva = new Reseña(atletaActual.get().id(), atletaActual.get().nombre(), coachElegido, estrellas, comentario, LocalDateTime.now());
+                            reseñaRepo.guardarReseña(nueva);
+                            System.out.println("Reseña para " + coachElegido + " guardada!!!!");
+                        } else {
+                            System.out.println("Opcion invalida");
+                        }
+                    }
+                }else if (opc.equals("6")) {
                     authService.cerrarSesion();
                     enMenu = false;
                 } else {

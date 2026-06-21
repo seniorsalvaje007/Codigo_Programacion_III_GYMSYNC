@@ -2,8 +2,7 @@ package com.gymsync.repository;
 
 import com.gymsync.model.ClaseCrossFit;
 import java.time.LocalDateTime;
-import java.util.Collection;
-import java.util.TreeMap;
+import java.util.*;
 
 public class ClaseRepository {
 
@@ -21,6 +20,13 @@ public class ClaseRepository {
 
         this.agendaSemanal.put(nuevaClase.getHorario(), nuevaClase);
         return true;
+    }
+
+    public List<String> obtenerListaCompleta () {
+        return agendaOrdenada().stream()
+                .map(ClaseCrossFit::getCoachAsignado)
+                .distinct()
+                .toList();
     }
 
     public Collection<ClaseCrossFit> agendaOrdenada () {
