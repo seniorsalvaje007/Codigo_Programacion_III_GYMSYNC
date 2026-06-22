@@ -33,4 +33,15 @@ public class ClaseRepository {
         return this.agendaSemanal.values();
     }
 
+    public List<ClaseCrossFit> obtenerClasesPorDia (int dia) {
+        List<ClaseCrossFit> clasesDelDia = new ArrayList<>();
+
+        for (ClaseCrossFit clase : agendaOrdenada()) {
+            clasesDelDia.add(clase);
+        }
+
+        return clasesDelDia;
+
+    }
+
 }

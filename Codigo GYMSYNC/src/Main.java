@@ -2,7 +2,6 @@
     import com.gymsync.repository.*;
     import com.gymsync.service.AuthService;
 
-    import java.sql.SQLOutput;
     import java.time.LocalDate;
     import java.time.temporal.ChronoUnit;
     import java.util.List;
@@ -21,6 +20,7 @@
             EjercicioRepository ejercicioRepo = new EjercicioRepository();
             ProgresoRepository progresoRepo = new ProgresoRepository();
             ReseñaRepository reseñaRepo = new ReseñaRepository();
+            NutricionRepository nutricionRepo = new NutricionRepository();
 
             boolean salir = false;
 
@@ -52,12 +52,12 @@
                                     if (diasRestantes <= 0) {
                                         pasarelaDePagos(scanner, atleta,atletaRepo, authService);
                                     } else {
-                                        menuAtletas(scanner, authService, claseRepo, ejercicioRepo, progresoRepo, reseñaRepo);
+                                        menuAtletas(scanner, authService, claseRepo, ejercicioRepo, progresoRepo, reseñaRepo, atletaRepo, nutricionRepo);
                                     }
 
                                 });
                             } else if (authService.tienePermiso(Rol.COACH)) {
-                                menuCoach(scanner, authService, claseRepo);
+                                menuCoach(scanner, authService, claseRepo, atletaRepo, nutricionRepo);
                             }
                         }
 
@@ -134,7 +134,7 @@
             }
         }
 
-        public static void menuAtletas (Scanner scanner, AuthService authService, ClaseRepository claseRepo, EjercicioRepository ejercicioRepo, ProgresoRepository progresoRepo, ReseñaRepository reseñaRepo) {
+        public static void menuAtletas (Scanner scanner, AuthService authService, ClaseRepository claseRepo, EjercicioRepository ejercicioRepo, ProgresoRepository progresoRepo, ReseñaRepository reseñaRepo, AtletaRepositorio atletaRepo, NutricionRepository nutricionRepo) {
             boolean enMenu = true;
             Optional<Atleta> atletaActual = authService.obtenerAtletaLogueado();
             String nombreAtleta = atletaActual.map(Atleta::nombre).orElse("Atleta");
@@ -142,39 +142,38 @@
             java.time.format.DateTimeFormatter formatoVisual = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
             while (enMenu) {
+                Atleta atleta = atletaRepo.buscarPorId(atletaActual.get().id()).get();
                 System.out.println("\n---Menu Atleta---");
+                System.out.println("RANGO: " + atleta.getRango() + " | PUNTOS: " + atleta.puntos() + " pts");
                 System.out.println("1. Ver mis datos de perfil");
                 System.out.println("2. Ver calendario de clases e Inscribirme");
                 System.out.println("3. Registrar progreso");
                 System.out.println("4. Ver mi historial de progreso");
                 System.out.println("5. Calificar Coach");
-                System.out.println("5. Cerrar sesion y volver al inicio de sesion");
+                System.out.println("6. Calculadora Nutricional");
+                System.out.println("7. Cerrar sesion y volver al inicio de sesion");
                 System.out.print(">");
                 String opc = scanner.nextLine();
 
                 if (opc.equals("1")) {
-                    atletaActual.ifPresent(atleta -> {
-                        System.out.println("\n---INFORMACION DE ATLETA---");
-                        System.out.println("ID " + atleta.id());
-                        System.out.println("Nombre: " + atleta.nombre());
-                        System.out.println("Correo: " + atleta.correo());
-                        System.out.println("Nivel: " + atleta.nivel());
-                        System.out.println("Membresia: " + atleta.tipoMembresia());
-                        System.out.println("Estado de membresia: " + (atleta.pagoActivo() ? "ACTIVO":"NO ACTIVO"));
+                    System.out.println("\n---INFORMACION DE ATLETA---");
+                    System.out.println("ID " + atleta.id());
+                    System.out.println("Nombre: " + atleta.nombre());
+                    System.out.println("Correo: " + atleta.correo());
+                    System.out.println("Nivel: " + atleta.nivel());
+                    System.out.println("Membresia: " + atleta.tipoMembresia());
+                    System.out.println("Estado de membresia: " + (atleta.pagoActivo() ? "ACTIVO":"NO ACTIVO"));
 
-                        LocalDate hoy = LocalDate.now();
-                        long diasRestantes = ChronoUnit.DAYS.between(hoy,atleta.fechaVencimiento());
+                    LocalDate hoy = LocalDate.now();
+                    long diasRestantes = ChronoUnit.DAYS.between(hoy,atleta.fechaVencimiento());
 
-                        java.time.format.DateTimeFormatter formatoFecha = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
-                        String fechaBonita = atleta.fechaVencimiento().format(formatoFecha);
+                    java.time.format.DateTimeFormatter formatoFecha = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+                    String fechaBonita = atleta.fechaVencimiento().format(formatoFecha);
 
-                        if (diasRestantes > 0) {
-                            System.out.println("Vencimiento: " + fechaBonita + " (Te quedan " + diasRestantes + " dias)" );
-                        } else {
-                            System.out.println("Vencimiento: " + fechaBonita + " (Expirada hace " + Math.abs(diasRestantes) + " dias)");
-                        }
-
-                    });
+                    if (diasRestantes > 0) {
+                        System.out.println("Vencimiento: " + fechaBonita + " (Te quedan " + diasRestantes + " dias)" );
+                    } else {
+                        System.out.println("Vencimiento: " + fechaBonita + " (Expirada hace " + Math.abs(diasRestantes) + " dias)");}
                 } else if (opc.equals("2")) {
                     System.out.println("\n---CALENDARIO DE CLASES DISPONIBLES---");
                     if (claseRepo.agendaOrdenada().isEmpty()) {
@@ -197,9 +196,7 @@
 
                         if (seleccion > 0 && seleccion <= listaClases.size()) {
                             ClaseCrossFit claseElegida = listaClases.get(seleccion - 1);
-                            atletaActual.ifPresent(atleta -> {
-                                claseElegida.inscribirAtleta(atleta);
-                            });
+                            claseElegida.inscribirAtleta(atleta);
                         } else if (seleccion != 0) {
                             System.out.println("Opcion invalida");
                         }
@@ -207,8 +204,6 @@
 
                 }else if (opc.equals("3")) {
                     List<Ejercicio> catalogo = ejercicioRepo.obtenerTodos();
-
-                    System.out.println("DEBUG: El tamaño del catálogo es: " + catalogo.size());
 
                     System.out.println("\n---SELECCIONE UN EJERCICIO---");
                     for (int i = 0; i < catalogo.size(); i++) {
@@ -227,6 +222,7 @@
 
                             Progreso nuevo = new Progreso(seleccionado.nombre(), seleccionado.tipo(), peso, LocalDate.now());
                             progresoRepo.registrarProgreso(atletaActual.get().id(), nuevo);
+                            atletaRepo.sumarPuntos(atletaActual.get().id(), 50);
                             System.out.println("Nuevo record registrado en " + seleccionado.nombre() + "!");
                         } else {
                             System.out.println("Numero fuera de rango");
@@ -289,6 +285,61 @@
                         }
                     }
                 }else if (opc.equals("6")) {
+                    System.out.println("\n ---CALCULADORA NUTRICIONAL---");
+                    Optional<PerfilNutricional> perfilOpt = nutricionRepo.obtenerPerfil(atleta.id());
+
+                    if (perfilOpt.isPresent()) {
+                        PerfilNutricional p = perfilOpt.get();
+                        System.out.println("Ya tiene un perfil guardado");
+                        System.out.println("Objetivo: " + p.objetivo() + " | " + p.caloriasTotales() + "kcal");
+                        System.out.println("Desea recalcular sus macros(S/N): ");
+                        if (!scanner.nextLine().equalsIgnoreCase("S")) {
+                            System.out.println("Proteinas: " + p.proteinas() + "g (" + p.caloriasTotales() + " kcal)");
+                            System.out.println("Carbohidratos: " + p.carbohidratos() + "g (" + (p.carbohidratos() * 4) + "kcal)");
+                            System.out.println("Grasas: " + p.grasas() + "g (" + (p.grasas() * 9) + " kcal)");
+                            continue;
+                        }
+                    }
+
+                    System.out.print("Peso Actual (kg): ");
+                    double peso = Double.parseDouble(scanner.nextLine());
+                    System.out.print("Altura (cm): ");
+                    double altura = Double.parseDouble(scanner.nextLine());
+                    System.out.print("Edad: ");
+                    int edad = Integer.parseInt(scanner.nextLine());
+                    System.out.print("Genero (M/F): ");
+                    String genero = scanner.nextLine();
+
+                    System.out.println("Nivel de Actividad en el Box");
+                    System.out.println("1. Moderado (WODs 3-4 veces por semana)");
+                    System.out.println("2. Intenso (WODs 5-6 veces por semana)");
+                    System.out.println("3. Atleta Competitivo (Doble sesion / Rx pesado)");
+                    System.out.print(">");
+                    String actividad = scanner.nextLine();
+
+                    System.out.println("Seleccioma tu objetivo:");
+                    System.out.println("1. Definicion (Bajar grasa manteniendo musculo)");
+                    System.out.println("2. Mantenimiento (Mejorar rendimiento en WODs)");
+                    System.out.println("3. Volumen (Ganar masa muscular y fuerza)");
+                    System.out.print(">");
+                    String opcObj = scanner.nextLine();
+
+                    String objetivo = "MANTEMIENTO";
+                    if (opc.equals("1")) objetivo = "DEFINICION";
+                    if (opc.equals("3")) objetivo = "VOlUMEN";
+
+                    PerfilNutricional nuevoPerfil = PerfilNutricional.calcular(peso, altura, edad, genero, actividad, objetivo);
+                    nutricionRepo.guardarPerfil(atleta.id(), nuevoPerfil);
+
+                    System.out.println("\nPERFIL NUTRICIONAL ENERGETICO GENERADO");
+                    System.out.println("Objetivo principal: " + nuevoPerfil.objetivo());
+                    System.out.println("Calorias diarias recomendadas: " + nuevoPerfil.caloriasTotales());
+                    System.out.println("Desglose de macronutrientes:");
+                    System.out.println("    Proteinas: " + nuevoPerfil.proteinas() + "g");
+                    System.out.println("    Carbohidratos" + nuevoPerfil.carbohidratos() + "g");
+                    System.out.println("    Grasas" + nuevoPerfil.grasas() + "g");
+
+                }else if(opc.equals("7")) {
                     authService.cerrarSesion();
                     enMenu = false;
                 } else {
@@ -297,13 +348,15 @@
             }
         }
 
-        public static void menuCoach (Scanner scanner, AuthService authService, ClaseRepository claseRepo) {
+        public static void menuCoach (Scanner scanner, AuthService authService, ClaseRepository claseRepo, AtletaRepositorio atletaRepo, NutricionRepository nutricionRepo) {
             boolean enMenu = true;
 
             while (enMenu) {
                 System.out.println("\n---Menu Coach---");
-                System.out.println("1. Gestionar clases(Bajo contruccion)");
-                System.out.println("2. Cerrar Sesion y volver al inicio de sesion");
+                System.out.println("1. Gestionar clases");
+                System.out.println("2. Registrar asistencia");
+                System.out.println("3. Consultar perfil profesional de atleta");
+                System.out.println("4. Cerrar Sesion y volver al inicio de sesion");
                 System.out.print("> ");
                 String opc = scanner.nextLine();
 
@@ -329,7 +382,7 @@
                         System.out.print("Ingrese el cupo maximo de atletas: ");
                         int cupo = Integer.parseInt(scanner.nextLine());
 
-                        System.out.println("Nombre del coach asginado: ");
+                        System.out.print("Nombre del coach asginado: ");
                         String nombreCoach = scanner.nextLine();
 
                         LocalDateTime horaExacta = LocalDateTime.of(2026, 6, dia, hora, 0);
@@ -345,6 +398,80 @@
                     }
 
                 } else if (opc.equals("2")) {
+                    System.out.print("Ingrese el dia de la clase:");
+                    int dia = Integer.parseInt(scanner.nextLine());
+
+                    List<ClaseCrossFit> clasesDelDia = claseRepo.obtenerClasesPorDia(dia);
+
+                    if (clasesDelDia.isEmpty()) {
+                        System.out.println("ADVERTENCIA: No tiene clases agenda para el dia " + dia);
+                    } else {
+                        System.out.println("\n---SELECCION DE CLASE---");
+                        for (int i = 0; i < clasesDelDia.size(); i++) {
+                            System.out.println((i + 1) + ". WOD: " + clasesDelDia.get(i).getNombreWOD() +
+                                    " |Horario: " + clasesDelDia.get(i).getHorario().getHour() + ":00" +
+                                    " |Coach: " + clasesDelDia.get(i).getCoachAsignado());
+                        }
+                        System.out.print("Seleccione la clase:");
+                        int selClase = Integer.parseInt(scanner.nextLine()) - 1;
+
+                        if (selClase >= 0 && selClase < clasesDelDia.size()) {
+                            ClaseCrossFit clase = clasesDelDia.get(selClase );
+                            List<Atleta> incritos = clase.getAtletasInscritos();
+
+                            if (incritos.isEmpty()) {
+                                System.out.println("No hay atletas incritos por el momento");
+                            } else {
+                                System.out.println("\n---REGISTRAR ASISTENCIA---");
+                                for (int i = 0; i < incritos.size(); i++) {
+                                    System.out.println((i + 1) + ". " + incritos.get(i).nombre() + "(ID: " + incritos.get(i).id() + ")");
+                                }
+                                System.out.print("Seleccione al atleta que asistio a la clase de hoy: ");
+                                int selAtleta = Integer.parseInt(scanner.nextLine()) - 1;
+
+                                if (selAtleta >= 0 && selAtleta < incritos.size()) {
+                                    Atleta a = incritos.get(selAtleta);
+                                    clase.registrarAsistencia(a);
+
+                                    atletaRepo.sumarPuntos(a.id(), 100);
+                                    System.out.println("Asitencia registrada exitosamente +100 para el atleta" + a.nombre() + ".");
+                                }
+                            }
+                        }else {
+                            System.out.println("Seleccion de clase invalida");
+                        }
+
+                    }
+
+                }else if (opc.equals("3")){
+                    System.out.println("Ingrese el ID del Atleta: ");
+                    String idAtleta = scanner.nextLine();
+
+                    Optional<Atleta> atletaOpt = atletaRepo.buscarPorId(idAtleta);
+
+                    if (atletaOpt.isEmpty()) {
+                        System.out.println("ERROR: No se encontro ningun atleta registrado con ese ID");
+                    } else {
+                        Atleta a = atletaOpt.get();
+                        System.out.println("\n---SEGUIMIENTO NUTRICIONALDE " + a.nombre().toUpperCase() + "---");
+
+                        Optional<PerfilNutricional> nutOpt = nutricionRepo.obtenerPerfil(a.id());
+
+                        if (nutOpt.isEmpty()) {
+                            System.out.println("El atleta no ah realizado su calculo nutricional");
+                        } else {
+                            PerfilNutricional n = nutOpt.get();
+                            System.out.println("Objetivo: " + n.objetivo());
+                            System.out.println("Meta calórica: " + n.caloriasTotales() + " kcal/día");
+                            System.out.println("Distribución de Macronutrientes recomendada:");
+                            System.out.println("   - Proteínas: " + n.proteinas() + "g");
+                            System.out.println("   - Carbohidratos: " + n.carbohidratos() + "g");
+                            System.out.println("   - Grasas: " + n.grasas() + "g");
+                            System.out.println("Nota para el Coach: Asegura el consumo de carbohidratos en pre/post entrenamiento.");
+                        }
+                    }
+
+                }else if (opc.equals("4")) {
                     authService.cerrarSesion();
                     enMenu = false;
                 } else {
@@ -457,7 +584,7 @@
 
             Atleta atletaRenovado = new Atleta(atletaViejo.id(), atletaViejo.nombre(),
                                             atletaViejo.correo(), atletaViejo.nivel(),
-                                            nuevoPlan, true, nuevaFecha);
+                                            nuevoPlan, true, nuevaFecha, atletaViejo.puntos());
 
             atletaRepo.actualizarAtleta(atletaRenovado);
 

@@ -14,6 +14,7 @@ public class ClaseCrossFit {
     private String coachAsignado;
     private final List<Atleta> atletasInscritos;
     private final PriorityQueue<Atleta> listaEspera;
+    private final List<Atleta> asistentes = new ArrayList<>();
 
     public ClaseCrossFit (String id, String nombreWOD, LocalDateTime horario, int cupoMaximo, String coachAsignado) {
         this.id = id;
@@ -61,4 +62,19 @@ public class ClaseCrossFit {
             return false;
         }
     }
+
+    public void registrarAsistencia (Atleta atleta) {
+        if (atletasInscritos.contains(atleta)) {
+            if (!asistentes.contains(atleta)) {
+                asistentes.add(atleta);
+                System.out.println("Asistencia registrada exitosamente para el atleta " + atleta.nombre());
+            } else {
+                System.out.println("El atleta actual ya tiene su asistencia");
+            }
+        } else {
+            System.out.println("ERORR: El atleta no esta incrito en la clase");
+        }
+    }
+
+    public List<Atleta> getAsistencia () {return this.asistentes;}
 }

@@ -22,7 +22,7 @@ public class AtletaRepositorio {
         contadorAtletas ++;
         String idGenerado = String.format("GS-%03d", contadorAtletas);
 
-        Atleta nuevoAtleta = new Atleta (idGenerado, nombre, correo, nivel, tipoMembresia, pagoActivo, fechaVencimiento);
+        Atleta nuevoAtleta = new Atleta (idGenerado, nombre, correo, nivel, tipoMembresia, pagoActivo, fechaVencimiento, 0);
 
         atletasPorId.put(nuevoAtleta.id(), nuevoAtleta);
         atletasPorCorreo.put(nuevoAtleta.correo(), nuevoAtleta);
@@ -34,6 +34,17 @@ public class AtletaRepositorio {
     public void actualizarAtleta (Atleta atletaActualizado) {
         atletasPorId.put(atletaActualizado.id(), atletaActualizado);
         atletasPorCorreo.put(atletaActualizado.correo(), atletaActualizado);
+    }
+
+    public void sumarPuntos (String id, int puntosExtra) {
+        buscarPorId(id).ifPresent(atleta -> {
+            Atleta atletaActualizado = new Atleta(
+                    atleta.id(), atleta.nombre(), atleta.correo(), atleta.nivel(),
+                    atleta.tipoMembresia(), atleta.pagoActivo(), atleta.fechaVencimiento(),
+                    atleta.puntos() + puntosExtra
+            );
+            actualizarAtleta(atletaActualizado);
+        });
     }
 
     public Optional<Atleta> buscarPorId (String id) {return Optional.ofNullable(atletasPorId.get(id));}
