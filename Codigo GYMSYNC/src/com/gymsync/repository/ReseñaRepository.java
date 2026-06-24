@@ -10,6 +10,10 @@ public class ReseñaRepository {
         baseReseñas.add(r);
     }
 
+    public List<Reseña> obtenerTodas() {
+        return new ArrayList<>(baseReseñas);
+    }
+
     public List<Reseña> obtenerReseñasPorCoach (String nombreCoach) {
         return baseReseñas.stream()
                 .filter(r -> r.nombreCoach().equalsIgnoreCase(nombreCoach))

@@ -10,7 +10,7 @@
     import java.util.Optional;
     import java.util.Scanner;
 
-    public class    Main {
+    public class Main {
         public static void main(String[] args) {
             Scanner scanner = new Scanner(System.in);
 
@@ -21,6 +21,7 @@
             ProgresoRepository progresoRepo = new ProgresoRepository();
             ReseñaRepository reseñaRepo = new ReseñaRepository();
             NutricionRepository nutricionRepo = new NutricionRepository();
+            ReporteAdministrativoService reporteService = new ReporteAdministrativoService(atletaRepo, claseRepo, reseñaRepo);
 
             boolean salir = false;
 
@@ -126,6 +127,64 @@
                         salir = true;
                         System.out.println("Saliendo del sistema....");
                         break;
+
+                    case "admin":
+                        System.out.print("\033[H\033[2J"); // Código ANSI para limpiar terminal de Linux
+                        System.out.flush();
+
+                        System.out.println("\n╔══════════════════════════════════════════════════════╗");
+                        System.out.println("║       GYMSYNC CORE - CUENTA DE ADMINISTRADOR         ║");
+                        System.out.println("╚══════════════════════════════════════════════════════╝");
+                        System.out.print("Password (Root): ");
+                        String rootPass = scanner.nextLine();
+
+                        if (rootPass.equals("No Merecemos Piedad")) {
+                            boolean enAdmin = true;
+
+                            while (enAdmin) {
+                                System.out.println("\033[H\033[2J");
+                                System.out.flush();
+
+                                System.out.println("\n========================================================");
+                                System.out.println("---GYMSYNC CONTROL PANEL - TERMINAL DE GERENCIA----");
+                                System.out.println("========================================================");
+                                System.out.println("1. Generar Reporte General de Auditoría");
+                                System.out.println("2. [BLOQUEADO] Gestionar Membresías y Precios");
+                                System.out.println("3. [BLOQUEADO] Configuración de Personal y Coaches");
+                                System.out.println("4. Cerrar Sesión Admin (Regresar a Menú Principal)");
+                                System.out.print("$ root_task: ");
+                                String opAdmin = scanner.nextLine();
+
+                                switch (opAdmin) {
+                                    case "1":
+                                        System.out.print("\033[H\033[2J");
+                                        System.out.flush();
+
+                                        reporteService.generarReporte();
+                                        System.out.println("\nPresione [ENTER] para regresar al Panel de Control...");
+                                        scanner.nextLine();
+                                        break;
+
+                                    case "4":
+                                        System.out.println("\nCerrando sesión de admin...");
+                                        enAdmin = false;
+                                        break;
+
+                                    default:
+                                        System.out.println("\nOpcion no reconocida");
+                                        System.out.println("Presione [ENTER] para continuar...");
+                                        scanner.nextLine();
+                                        break;
+                                }
+
+                            }
+
+                            System.out.print("\033[H\033[2J");
+                            System.out.flush();
+
+                        }else {
+                            System.out.println("Opcion invalida");
+                        }
 
                     default:
                         System.out.println("Opcion invalida");
