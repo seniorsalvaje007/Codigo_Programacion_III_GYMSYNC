@@ -1,6 +1,6 @@
 package com.gymsync.model;
 
-public class Usuario {
+public class    Usuario {
 
     private final String correo;
     private final String contraseña;

@@ -1,3 +1,5 @@
+
+=== ARCHIVO: ./Codigo GYMSYNC/src/Main.java ===
 import com.gymsync.model.*;
 import com.gymsync.repository.*;
 import com.gymsync.service.AuthService;
@@ -690,4 +692,888 @@ public class Main {
         return true;
 
     }
+}
+=== ARCHIVO: ./Codigo GYMSYNC/src/com/gymsync/service/AuthService.java ===
+package com.gymsync.service;
+
+import com.gymsync.model.Usuario;
+import com.gymsync.model.Rol;
+import com.gymsync.model.Atleta;
+import com.gymsync.repository.AtletaRepositorio;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
+public class AuthService {
+
+    private final Map<String, Usuario> tablaCredenciales;
+    private final AtletaRepositorio atletaRepositorio;
+    private Usuario usuarioAutenticado;
+
+    public AuthService (AtletaRepositorio atletaRepositorio) {
+        this.tablaCredenciales = new HashMap<>();
+        this.atletaRepositorio = atletaRepositorio;
+        this.usuarioAutenticado = null;
+    }
+
+    public void registrarUsuario (String correo, String contraseña, Rol rol) {
+        Usuario nuevo = new Usuario (correo, contraseña, rol);
+        tablaCredenciales.put(correo, nuevo);
+    }
+
+    public boolean iniciarSesion (String correo, String contraseña) {
+        Usuario usuario = tablaCredenciales.get(correo);
+
+        if (usuario == null) {
+            System.out.println("No existe ninguna cuenta registrada con ese correo electronico");
+            return false;
+        }
+
+        if (usuario.getContraseña().equals(contraseña)) {
+            this.usuarioAutenticado = usuario;
+            System.out.println("Sesion iniciada con " + correo + "[" + usuario.getRol() + "]\n");
+            return true;
+        }
+        System.out.println("Contraseña incorrecta");
+        return false;
+    }
+
+    public Optional<Atleta> obtenerAtletaLogueado () {
+        if (usuarioAutenticado != null || usuarioAutenticado.getRol() == Rol.ATLETA) {return atletaRepositorio.buscarPorCorreo(usuarioAutenticado.getCorreo());}
+        return Optional.empty();
+    }
+
+    public boolean tienePermiso (Rol rolRequerido) {
+        if (usuarioAutenticado == null) {
+            System.out.println("ACCESO DENEGADO; Por favor inicie sesion");
+            return false;
+        }
+        return usuarioAutenticado.getRol() == rolRequerido;
+    }
+
+    public void cerrarSesion() {
+        this.usuarioAutenticado = null;
+    }
+
+}
+
+=== ARCHIVO: ./Codigo GYMSYNC/src/com/gymsync/model/TipoEjercicio.java ===
+package com.gymsync.model;
+
+public enum TipoEjercicio {
+    PESAS,
+    GIMNASIA,
+    CARDIO
+}
+
+=== ARCHIVO: ./Codigo GYMSYNC/src/com/gymsync/model/Reseña.java ===
+package com.gymsync.model;
+import java.time.LocalDateTime;
+
+public record Reseña(
+        String idAtleta,
+        String nombreAtleta,
+        String nombreCoach,
+        int estrellas,
+        String comentario,
+        LocalDateTime fecha
+) {}
+=== ARCHIVO: ./Codigo GYMSYNC/src/com/gymsync/model/Rol.java ===
+package com.gymsync.model;
+
+public enum Rol {
+    COACH,
+    ATLETA,
+    ADMIN
+}
+
+=== ARCHIVO: ./Codigo GYMSYNC/src/com/gymsync/model/NivelAtleta.java ===
+    package com.gymsync.model;
+
+    public enum NivelAtleta {
+        PRINCIPIANTE,
+        INTERMEDIO,
+        AVANZADO
+    }
+
+=== ARCHIVO: ./Codigo GYMSYNC/src/com/gymsync/model/ClaseCrossFit.java ===
+package com.gymsync.model;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.PriorityQueue;
+
+public class ClaseCrossFit {
+
+    private final String id;
+    private final String nombreWOD;
+    private final LocalDateTime horario;
+    private final int cupoMaximo;
+    private String coachAsignado;
+    private final List<Atleta> atletasInscritos;
+    private final PriorityQueue<Atleta> listaEspera;
+    private final List<Atleta> asistentes = new ArrayList<>();
+
+    public ClaseCrossFit (String id, String nombreWOD, LocalDateTime horario, int cupoMaximo, String coachAsignado) {
+        this.id = id;
+        this.nombreWOD = nombreWOD;
+        this.horario = horario;
+        this.cupoMaximo = cupoMaximo;
+        this.coachAsignado = coachAsignado;
+        this.atletasInscritos = new ArrayList<>();
+        this.listaEspera = new PriorityQueue<>((atleta1, atleta2) -> {
+            int peso1 = atleta1.tipoMembresia().equalsIgnoreCase("ANUAL") ? 2 :
+                    (atleta1.tipoMembresia().equalsIgnoreCase("TRIMESTRAL") ? 1 : 0);
+
+            int peso2 = atleta2.tipoMembresia().equalsIgnoreCase("ANUAL") ? 2 :
+                    (atleta2.tipoMembresia().equalsIgnoreCase("TRIMESTRAL") ? 1 : 0);
+
+            return Integer.compare(peso2, peso1);
+        });
+    }
+
+    public String getId () {return this.id;}
+    public String getNombreWOD () {return this.nombreWOD;}
+    public LocalDateTime getHorario () {return this.horario;}
+    public int getCupoMaximo () {return this.cupoMaximo;}
+    public String getCoachAsignado () {return this.coachAsignado;}
+    public List<Atleta> getAtletasInscritos () {return this.atletasInscritos;}
+    public PriorityQueue<Atleta> getListaEspera () {return this.listaEspera;}
+
+    public void setCoachAsignado (String coachAsignado) {
+        this.coachAsignado = coachAsignado;
+    }
+
+    public boolean inscribirAtleta (Atleta atleta) {
+        if (atletasInscritos.contains(atleta)){
+            System.out.println("El atleta ya se encuentra inscrito en esta clase");
+            return false;
+        }
+
+        if (atletasInscritos.size() < cupoMaximo) {
+            atletasInscritos.add(atleta);
+            System.out.println("Inscripcion en la clase confirmada para el atleta: " + atleta.nombre());
+            return true;
+        } else {
+            listaEspera.offer(atleta);
+            System.out.println("Clase llena. El atleta " + atleta.nombre() + " a entrado en lista de espera");
+            return false;
+        }
+    }
+
+    public void registrarAsistencia (Atleta atleta) {
+        if (atletasInscritos.contains(atleta)) {
+            if (!asistentes.contains(atleta)) {
+                asistentes.add(atleta);
+                System.out.println("Asistencia registrada exitosamente para el atleta " + atleta.nombre());
+            } else {
+                System.out.println("El atleta actual ya tiene su asistencia");
+            }
+        } else {
+            System.out.println("ERORR: El atleta no esta incrito en la clase");
+        }
+    }
+
+    public List<Atleta> getAsistencia () {return this.asistentes;}
+}
+
+=== ARCHIVO: ./Codigo GYMSYNC/src/com/gymsync/model/Usuario.java ===
+package com.gymsync.model;
+
+public class    Usuario {
+
+    private final String correo;
+    private final String contraseña;
+    private final Rol rol;
+
+    public Usuario (String correo, String contraseña, Rol rol) {
+        this.correo = correo;
+        this.contraseña = contraseña;
+        this.rol = rol;
+    }
+
+    public String getCorreo() {return correo;}
+    public String getContraseña() {return contraseña;}
+    public Rol getRol() {return rol;}
+}
+
+=== ARCHIVO: ./Codigo GYMSYNC/src/com/gymsync/model/Progreso.java ===
+package com.gymsync.model;
+
+import java.time.LocalDate;
+
+public record Progreso(String nombre,
+                       TipoEjercicio tipo,
+                       double peso,
+                       LocalDate fecha) {
+}
+
+=== ARCHIVO: ./Codigo GYMSYNC/src/com/gymsync/model/PerfilNutricional.java ===
+package com.gymsync.model;
+
+public record PerfilNutricional (
+        double peso,
+        double altura,
+        int edad,
+        String genero,
+        String objetivo,
+        double caloriasTotales,
+        double proteinas,
+        double carbohidratos,
+        double grasas
+) {
+    public static PerfilNutricional calcular(double peso, double altura, int edad, String genero, String actividad, String objetivo) {
+        double tmb;
+        if (genero.equalsIgnoreCase("M")) {
+            tmb = (10 * peso) + (6.25 * altura) - (5 * edad) + 5;
+        } else {
+            tmb = (10 * peso) + (6.25 * altura) - (5 * edad) - 161;
+        }
+
+        double factor = switch (actividad) {
+            case "1" -> 1.375;
+            case "2" -> 1.55;
+            case "3" -> 1.725;
+            default -> 1.2;
+        };
+
+        double mantenimiento = tmb*factor;
+        double caloriasFinales = mantenimiento;
+
+        if (objetivo.equals("DEFINICION")) {
+            caloriasFinales = mantenimiento - 400;
+        } else if (objetivo.equalsIgnoreCase("VOLUMEN")) {
+            caloriasFinales = mantenimiento + 350;
+        }
+
+        double protGramos = peso * 2.2;
+        double grasasGramos = peso * 1.0;
+        double caloriasRestantes = caloriasFinales -(protGramos * 4) - (grasasGramos * 9);
+        double carbGramos = caloriasRestantes / 4;
+
+        if (carbGramos < 0) carbGramos = 0;
+
+        return new PerfilNutricional(peso, altura, edad, genero, objetivo,
+                Math.round(caloriasFinales), Math.round(protGramos),
+                Math.round(carbGramos), Math.round(grasasGramos));
+
+    }
+}
+
+=== ARCHIVO: ./Codigo GYMSYNC/src/com/gymsync/model/Rango.java ===
+package com.gymsync.model;
+
+public enum Rango {
+    NEUTRO(0),
+    BRONCE(1000),
+    PLATA(5000),
+    PLATINO(10000),
+    DIAMANTE(20000),
+    GIGACHAD(100000);
+
+    public final int puntosRequeridos;
+    Rango(int puntos) {this.puntosRequeridos = puntos;}
+    public int getPuntosRequeridos() {return this.puntosRequeridos;}
+}
+
+=== ARCHIVO: ./Codigo GYMSYNC/src/com/gymsync/model/NodoPlanificacion.java ===
+package com.gymsync.model;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class NodoPlanificacion {
+    private final String nombreElemento;
+    private final List<NodoPlanificacion> hijos;
+
+    public NodoPlanificacion(String nombreElemento) {
+        this.nombreElemento = nombreElemento;
+        this.hijos = new ArrayList<>();
+    }
+
+    public String getNombreElemento() { return nombreElemento; }
+    public List<NodoPlanificacion> getHijos() { return hijos; }
+
+    public void agregarHijo(NodoPlanificacion hijo) {
+        this.hijos.add(hijo);
+    }
+
+    // Algoritmo de Búsqueda Jerárquica - Caso promedio O(log n)
+    public boolean buscarEnPlan(String objetivo) {
+        if (this.nombreElemento.equalsIgnoreCase(objetivo)) return true;
+        for (NodoPlanificacion hijo : hijos) {
+            if (hijo.buscarEnPlan(objetivo)) return true;
+        }
+        return false;
+    }
+}
+=== ARCHIVO: ./Codigo GYMSYNC/src/com/gymsync/model/Ejercicio.java ===
+package com.gymsync.model;
+
+public record Ejercicio(String nombre,
+                        TipoEjercicio tipo) {}
+
+=== ARCHIVO: ./Codigo GYMSYNC/src/com/gymsync/model/Atleta.java ===
+package com.gymsync.model;
+
+import java.time.LocalDate;
+
+public record Atleta(String id,
+                     String nombre,
+                     String correo,
+                     NivelAtleta nivel,
+                     String tipoMembresia,
+                     boolean pagoActivo,
+                     LocalDate fechaVencimiento,
+                     int puntos) {
+
+    public Atleta {
+        if (id == null || id.isBlank() || correo == null || correo.isBlank()) {
+            throw new IllegalArgumentException("El ID del atleta no puede estar vacío");
+        }
+    }
+
+    public Rango getRango () {
+        if (puntos >= 100000) return Rango.GIGACHAD;
+        if (puntos>=20000) return Rango.DIAMANTE;
+        if (puntos>=10000) return Rango.PLATINO;
+        if (puntos>=5000) return Rango.PLATA;
+        if (puntos>=1000) return Rango.BRONCE;
+        return Rango.NEUTRO;
+    }
+}
+
+=== ARCHIVO: ./Codigo GYMSYNC/src/com/gymsync/repository/ProgresoRepository.java ===
+package com.gymsync.repository;
+
+import com.gymsync.model.Progreso;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+
+public class ProgresoRepository {
+
+    private final HashMap<String, List<Progreso>> historialProgreso;
+
+    public ProgresoRepository() {
+        this.historialProgreso = new HashMap<>();
+    }
+
+    public void registrarProgreso(String idAtleta, Progreso nuevoProgreso) {
+        historialProgreso.computeIfAbsent(idAtleta, k -> new ArrayList<>()).add(nuevoProgreso);
+    }
+
+    public List<Progreso> obtenerHistorial(String idAtleta) {
+        return historialProgreso.getOrDefault(idAtleta, new ArrayList<>());
+    }
+}
+=== ARCHIVO: ./Codigo GYMSYNC/src/com/gymsync/repository/AtletaRepositorio.java ===
+package com.gymsync.repository;
+
+import com.gymsync.model.Atleta;
+import com.gymsync.model.NivelAtleta;
+
+import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.Optional;
+
+public class AtletaRepositorio {
+
+    private final HashMap<String, Atleta> atletasPorId;
+    private final HashMap<String, Atleta> atletasPorCorreo;
+    private int contadorAtletas;
+
+    public AtletaRepositorio () {
+        this.atletasPorId = new HashMap<>();
+        this.atletasPorCorreo = new HashMap<>();
+    }
+
+    public Atleta registrarNuevoAtleta (String nombre, String correo, NivelAtleta nivel, String tipoMembresia, boolean pagoActivo, LocalDate fechaVencimiento) {
+        contadorAtletas ++;
+        String idGenerado = String.format("GS-%03d", contadorAtletas);
+
+        Atleta nuevoAtleta = new Atleta (idGenerado, nombre, correo, nivel, tipoMembresia, pagoActivo, fechaVencimiento, 0);
+
+        atletasPorId.put(nuevoAtleta.id(), nuevoAtleta);
+        atletasPorCorreo.put(nuevoAtleta.correo(), nuevoAtleta);
+
+        return nuevoAtleta;
+
+    }
+
+    public void actualizarAtleta (Atleta atletaActualizado) {
+        atletasPorId.put(atletaActualizado.id(), atletaActualizado);
+        atletasPorCorreo.put(atletaActualizado.correo(), atletaActualizado);
+    }
+
+    public void sumarPuntos (String id, int puntosExtra) {
+        buscarPorId(id).ifPresent(atleta -> {
+            Atleta atletaActualizado = new Atleta(
+                    atleta.id(), atleta.nombre(), atleta.correo(), atleta.nivel(),
+                    atleta.tipoMembresia(), atleta.pagoActivo(), atleta.fechaVencimiento(),
+                    atleta.puntos() + puntosExtra
+            );
+            actualizarAtleta(atletaActualizado);
+        });
+    }
+
+    public Optional<Atleta> buscarPorId (String id) {return Optional.ofNullable(atletasPorId.get(id));}
+    public Optional<Atleta> buscarPorCorreo (String correo) {return Optional.ofNullable(atletasPorCorreo.get(correo));}
+    public int obtenerTotalAtletas () {return atletasPorId.size();}
+}
+
+=== ARCHIVO: ./Codigo GYMSYNC/src/com/gymsync/repository/ClaseRepository.java ===
+package com.gymsync.repository;
+
+import com.gymsync.model.ClaseCrossFit;
+import java.time.LocalDateTime;
+import java.util.*;
+
+public class ClaseRepository {
+
+    private final TreeMap<LocalDateTime, ClaseCrossFit> agendaSemanal;
+
+    public ClaseRepository () {
+        this.agendaSemanal = new TreeMap<>();
+    }
+
+    public boolean programarClase (ClaseCrossFit nuevaClase) {
+        if (this.agendaSemanal.containsKey(nuevaClase.getHorario())) {
+            System.out.println("Conflicto de horario ya existe una clase programada en ese bloque de horario");
+            return false;
+        }
+
+        this.agendaSemanal.put(nuevaClase.getHorario(), nuevaClase);
+        return true;
+    }
+
+    public List<String> obtenerListaCompleta () {
+        return agendaOrdenada().stream()
+                .map(ClaseCrossFit::getCoachAsignado)
+                .distinct()
+                .toList();
+    }
+
+    public Collection<ClaseCrossFit> agendaOrdenada () {
+        return this.agendaSemanal.values();
+    }
+
+    public List<ClaseCrossFit> obtenerClasesPorDia (int dia) {
+        List<ClaseCrossFit> clasesDelDia = new ArrayList<>();
+
+        for (ClaseCrossFit clase : agendaOrdenada()) {
+            clasesDelDia.add(clase);
+        }
+
+        return clasesDelDia;
+
+    }
+
+    private final java.util.Stack<ClaseCrossFit> historialCambios = new java.util.Stack<>();
+
+    private final com.gymsync.model.NodoPlanificacion raizPlanificacion =
+            new com.gymsync.model.NodoPlanificacion("Box Principal - Planificación General");
+
+    public boolean programarClaseDinamica(ClaseCrossFit nuevaClase) {
+        if (this.agendaSemanal.containsKey(nuevaClase.getHorario())) {
+            System.out.println("Conflicto de horario ya existe una clase programada en ese bloque de horario");
+            return false;
+        }
+
+        this.agendaSemanal.put(nuevaClase.getHorario(), nuevaClase);
+        this.historialCambios.push(nuevaClase);
+
+        com.gymsync.model.NodoPlanificacion nuevoWOD =
+                new com.gymsync.model.NodoPlanificacion(nuevaClase.getNombreWOD());
+        this.raizPlanificacion.agregarHijo(nuevoWOD);
+
+        return true;
+    }
+
+    public void deshacerUltimaClase() {
+        if (!historialCambios.isEmpty()) {
+            ClaseCrossFit eliminada = historialCambios.pop();
+            this.agendaSemanal.remove(eliminada.getHorario());
+            System.out.println("LOG: Acción revertida mediante Stack. Se eliminó de la agenda: " + eliminada.getNombreWOD());
+        } else {
+            System.out.println("No hay modificaciones operativas que revertir en el Stack.");
+        }
+    }
+
+    public com.gymsync.model.NodoPlanificacion getRaizPlanificacion() {
+        return this.raizPlanificacion;
+    }
+
+}
+
+=== ARCHIVO: ./Codigo GYMSYNC/src/com/gymsync/repository/ReseñaRepository.java ===
+package com.gymsync.repository;
+
+import com.gymsync.model.Reseña;
+import java.util.*;
+
+public class ReseñaRepository {
+    private final List<Reseña> baseReseñas = new ArrayList<>();
+
+    public void guardarReseña (Reseña r) {
+        baseReseñas.add(r);
+    }
+
+    public List<Reseña> obtenerTodas() {
+        return new ArrayList<>(baseReseñas);
+    }
+
+    public List<Reseña> obtenerReseñasPorCoach (String nombreCoach) {
+        return baseReseñas.stream()
+                .filter(r -> r.nombreCoach().equalsIgnoreCase(nombreCoach))
+                .toList();
+    }
+}
+
+=== ARCHIVO: ./Codigo GYMSYNC/src/com/gymsync/repository/ReporteAdministrativoService.java ===
+package com.gymsync.repository;
+
+import com.gymsync.model.*;
+import com.gymsync.repository.*;
+
+import java.time.LocalDate;
+    import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class ReporteAdministrativoService {
+
+        private final AtletaRepositorio atletaRepo;
+        private final ClaseRepository claseRepo;
+        private final ReseñaRepository reseñaRepo;
+
+        public ReporteAdministrativoService (AtletaRepositorio atletaRepo, ClaseRepository claseRepo, ReseñaRepository reseñaRepo) {
+            this.atletaRepo = atletaRepo;
+            this.claseRepo = claseRepo;
+            this.reseñaRepo = reseñaRepo;
+        }
+
+        public void generarReporte () {
+            System.out.println("\n======================================================================");
+            System.out.println("---GYMSYNC SYSTEM - PANEL DE MONITOREO ADMINISTRATIVO---");
+            System.out.println("Fecha de reporte: " + LocalDate.now() + " | Box Administrativo");
+            System.out.println("======================================================================");
+
+            int mensuales = 0, trimestrales = 0, anuales = 0;
+            int totalAtletas = atletaRepo.obtenerTotalAtletas();
+            LocalDate hoy = LocalDate.now();
+
+            List<Atleta> atletasValidos = new ArrayList<>();
+
+            for (int i = 1; i <= totalAtletas; i++) {
+                String id = String.format("GS-%03d", i);
+                var atletaOpt = atletaRepo.buscarPorId(id);
+                atletaOpt.ifPresent(atletasValidos::add);
+            }
+
+            for (Atleta atleta : atletasValidos) {
+                if (atleta.pagoActivo() && atleta.tipoMembresia().equalsIgnoreCase("MENSUAL")) {
+                    mensuales++;
+                } else if (atleta.pagoActivo() && atleta.tipoMembresia().equalsIgnoreCase("TRIMESTRAL")) {
+                    trimestrales++;
+                } else if (atleta.pagoActivo() && atleta.tipoMembresia().equalsIgnoreCase("ANUAL")) {
+                    anuales++;
+                }
+            }
+
+            int totalAtletasActivos = mensuales + trimestrales + anuales;
+            int totalAtletasExpirados = totalAtletas - totalAtletasActivos;
+
+            double facMensual = mensuales * 15.000;
+            double facTrimestral = trimestrales * 40.00;
+            double facAnual = anuales * 100.00;
+            double totalFacturacion = facMensual + facTrimestral + facAnual;
+
+            double porcMensual = totalAtletasActivos == 0 ? 0 : (((double) mensuales)/totalAtletasActivos * 100);
+            double porcTrimestral = totalAtletasActivos == 0 ? 0 : (((double) trimestrales)/totalAtletasActivos * 100);
+            double porcAnual = totalAtletasActivos == 0 ? 0 : (((double) anuales)/totalAtletasActivos * 100);
+
+            System.out.println("\n[1] RESUMEN FINANCIERO Y MEMBRESÍAS");
+            System.out.println("----------------------------------------------------------------------");
+            System.out.println("Membresías Activas Totales en el Box: " + totalAtletasActivos + " atletas\n");
+            System.out.println("Distribución de Planes y Recaudación Proyectada Activa:");
+            System.out.printf("  • Plan MENSUAL    ( $15.00 ):  %d atletas  ->  $%,.2f  (%.1f%%)\n", mensuales, facMensual, porcMensual);
+            System.out.printf("  • Plan TRIMESTRAL ( $40.00 ):  %d atletas  ->  $%,.2f  (%.1f%%)\n", trimestrales, facTrimestral, porcTrimestral);
+            System.out.printf("  • Plan ANUAL     ($100.00 ):  %d atletas  ->  $%,.2f  (%.1f%%)\n", anuales, facAnual, porcAnual);
+            System.out.println("----------------------------------------------------------------------");
+            System.out.printf(" TOTAL FACTURACIÓN MENSUAL PROYECTADA: $%,.2f\n", totalFacturacion);
+            System.out.println("\n• Alerta de Retención:");
+            System.out.println("  • Atletas Activos con Pago al Día: " + totalAtletasActivos);
+            System.out.println("  • Atletas con Membresía Expirada:  " + totalAtletasExpirados + " (Acceso denegado en login)");
+
+            System.out.println("\n[2] CAPACIDAD OPERATIVA Y OCUPACIÓN DEL BOX");
+            System.out.println("----------------------------------------------------------------------");
+            List<ClaseCrossFit> todasLasClases = new ArrayList<>(claseRepo.agendaOrdenada());
+
+            if (todasLasClases.isEmpty()) {
+                System.out.println("DATOS INSUFICIENTES: No existen clases programadas en la agenda actualmente.");
+            } else {
+                int totalCuposOfertados = 0;
+                int totalCuposOcupados = 0;
+
+                Map<Integer, Integer> cuposPorHora = new HashMap<>();
+                Map<Integer, Integer> reservadosPorHora = new HashMap<>();
+
+                for (ClaseCrossFit clase : todasLasClases) {
+                    int hora = clase.getHorario().getHour();
+                    int capacidad = clase.getCupoMaximo();
+                    int inscritos = clase.getAtletasInscritos().size();
+
+                    totalCuposOfertados += capacidad;
+                    totalCuposOcupados += inscritos;
+
+                    cuposPorHora.put(hora, cuposPorHora.getOrDefault(hora, 0) + capacidad);
+                    reservadosPorHora.put(hora, reservadosPorHora.getOrDefault(hora, 0) + inscritos);
+                }
+
+                double porcentajeOcupacion = ((double) totalCuposOcupados / totalCuposOfertados) * 100;
+                System.out.printf("Tasa de Ocupación Física General del Mes: %.2f%%\n", porcentajeOcupacion);
+                System.out.println("(Total de cupos reservados: " + totalCuposOcupados + " de " + totalCuposOfertados + " ofertados en la agenda)\n");
+                System.out.println("Análisis Real de Franjas Horarias Calculadas:");
+
+                for (int hora : cuposPorHora.keySet()) {
+                    int max = cuposPorHora.get(hora);
+                    int ocupados = reservadosPorHora.getOrDefault(hora, 0);
+                    double porcFranja = ((double) ocupados / max) * 100;
+
+                    String semaforo = "⚪";
+                    if (porcFranja >= 85) semaforo = "🟢 (Crítico)";
+                    else if (porcFranja >= 50) semaforo = "🟡 (Estable)";
+                    else semaforo = "🔴 (Bajo)";
+
+                    System.out.printf("  • [%02d:00 - %02d:00] -> %s %.2f%% Ocupación [%d/%d cupos]\n",
+                            hora, hora + 1, semaforo, porcFranja, ocupados, max);
+                }
+            }
+
+
+            System.out.println("\n[3] CONTROL DE CALIDAD Y DESEMPEÑO DE COACHES");
+            System.out.println("----------------------------------------------------------------------");
+
+            List<String> listaCoaches = claseRepo.obtenerListaCompleta();
+            List<Reseña> todasLasReseñas = reseñaRepo.obtenerTodas();
+
+            if (listaCoaches.isEmpty()) {
+                System.out.println("[REGISTRO VACÍO]: No se encuentran coaches registrados en el sistema por el momento.");
+            } else {
+                System.out.println("Calificación Promedio del Staff (Calculada en Tiempo Real):\n");
+                System.out.println("RANKING DE COACHES:");
+
+                List<Reseña> alertasCriticas = new ArrayList<>();
+
+                for (String coach : listaCoaches) {
+                    int sumaEstrellas = 0;
+                    int contadorReseñas = 0;
+
+                    for (Reseña r : todasLasReseñas) {
+                        if (r.nombreCoach().equalsIgnoreCase(coach)) {
+                            sumaEstrellas += r.estrellas();
+                            contadorReseñas++;
+
+                            if (r.estrellas() < 3) {
+                                alertasCriticas.add(r);
+                            }
+                        }
+                    }
+
+                    if (contadorReseñas == 0) {
+                        System.out.println("Coach " + coach + " -> Sin calificaciones registradas aún.");
+                    } else {
+                        double promedio = (double) sumaEstrellas / contadorReseñas;
+                        String rendimiento = "Estable";
+                        if (promedio >= 4.5) rendimiento = "Excelente";
+                        else if (promedio < 3.5) rendimiento = "Bajo Promedio";
+
+                        System.out.printf("  • Coach %-20s ->  %.1f / 5.0  (%d reseñas)  [%s]\n",
+                                coach, promedio, contadorReseñas, rendimiento);
+                    }
+                }
+
+                System.out.println("\nALERTAS DE CALIDAD ADMINISTRATIVA (Reseñas < 3 estrellas encontradas):");
+                if (alertasCriticas.isEmpty()) {
+                    System.out.println("¡Todo al día! No se han registrado quejas o reseñas bajas de rendimiento.");
+                } else {
+                    for (Reseña alerta : alertasCriticas) {
+                        System.out.printf("Atleta ID: %s | Coach: %s | Calificación: %s\n",
+                                alerta.idAtleta(), alerta.nombreCoach(), "⭐".repeat(alerta.estrellas()));
+                        System.out.println("     \"" + alerta.comentario() + "\"");
+                    }
+                }
+            }
+            System.out.println("======================================================================");
+        }
+    }
+
+=== ARCHIVO: ./Codigo GYMSYNC/src/com/gymsync/repository/ProgresionTecnicaRepository.java ===
+package com.gymsync.repository;
+
+import java.util.*;
+
+public class ProgresionTecnicaRepository {
+    private final Map<String, List<String>> grafoMovimientos = new HashMap<>();
+
+    public void registrarDependencia(String movimientoBase, String movimientoAvanzado) {
+        grafoMovimientos.computeIfAbsent(movimientoBase, k -> new ArrayList<>()).add(movimientoAvanzado);
+    }
+
+    public List<String> obtenerRutaCritica(String inicio, String destino) {
+        Queue<List<String>> colaCaminos = new LinkedList<>();
+        Set<String> visitados = new HashSet<>();
+
+        colaCaminos.add(Collections.singletonList(inicio));
+        visitados.add(inicio);
+
+        while (!colaCaminos.isEmpty()) {
+            List<String> camino = colaCaminos.poll();
+            String nodo = camino.get(camino.size() - 1);
+
+            if (nodo.equalsIgnoreCase(destino)) return camino;
+
+            List<String> dependientes = grafoMovimientos.getOrDefault(nodo, new ArrayList<>());
+            for (String sig : dependientes) {
+                if (!visitados.contains(sig)) {
+                    visitados.add(sig);
+                    List<String> nuevoCamino = new ArrayList<>(camino);
+                    nuevoCamino.add(sig);
+                    colaCaminos.add(nuevoCamino);
+                }
+            }
+        }
+        return Collections.emptyList();
+    }
+
+    public boolean verificarCiclos() {
+        Set<String> visitados = new HashSet<>();
+        Set<String> pilaRecorrido = new HashSet<>();
+
+        for (String nodo : grafoMovimientos.keySet()) {
+            if (detectarCicloDFS(nodo, visitados, pilaRecorrido)) return true;
+        }
+        return false;
+    }
+
+    private boolean detectarCicloDFS(String nodo, Set<String> visitados, Set<String> pilaRecorrido) {
+        if (pilaRecorrido.contains(nodo)) return true;
+        if (visitados.contains(nodo)) return false;
+
+        pilaRecorrido.add(nodo);
+        List<String> vecinos = grafoMovimientos.getOrDefault(nodo, new ArrayList<>());
+        for (String vecino : vecinos) {
+            if (detectarCicloDFS(vecino, visitados, pilaRecorrido)) return true;
+        }
+
+        pilaRecorrido.remove(nodo);
+        visitados.add(nodo);
+        return false;
+    }
+}
+=== ARCHIVO: ./Codigo GYMSYNC/src/com/gymsync/repository/NutricionRepository.java ===
+package com.gymsync.repository;
+
+import com.gymsync.model.PerfilNutricional;
+import java.util.HashMap;
+import java.util.Optional;
+
+public class NutricionRepository {
+
+    private final HashMap<String, PerfilNutricional> historialNutricional;
+
+    public NutricionRepository () {
+        this.historialNutricional = new HashMap<>();
+    }
+
+    public void guardarPerfil (String atletaId, PerfilNutricional perfil) {
+        historialNutricional.put(atletaId, perfil);
+    }
+
+    public Optional<PerfilNutricional> obtenerPerfil (String atletaId) {
+        return Optional.ofNullable(historialNutricional.get(atletaId));
+    }
+}
+
+=== ARCHIVO: ./Codigo GYMSYNC/src/com/gymsync/repository/EjercicioRepository.java ===
+package com.gymsync.repository;
+
+import com.gymsync.model.Ejercicio;
+import com.gymsync.model.TipoEjercicio;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class EjercicioRepository {
+
+    private final List<Ejercicio> catalogoEjercicios;
+
+    public EjercicioRepository () {
+        this.catalogoEjercicios = new ArrayList<>();
+        cargarEjercicioMaestros();
+    }
+
+    public void cargarEjercicioMaestros () {
+        catalogoEjercicios.add(new Ejercicio("Deadlift", TipoEjercicio.PESAS));
+        catalogoEjercicios.add(new Ejercicio("Back Squat", TipoEjercicio.PESAS));
+        catalogoEjercicios.add(new Ejercicio("Front Squat", TipoEjercicio.PESAS));
+        catalogoEjercicios.add(new Ejercicio("Overhead Squat", TipoEjercicio.PESAS));
+        catalogoEjercicios.add(new Ejercicio("Thruster", TipoEjercicio.PESAS));
+        catalogoEjercicios.add(new Ejercicio("Strict Press", TipoEjercicio.PESAS));
+        catalogoEjercicios.add(new Ejercicio("Push Press", TipoEjercicio.PESAS));
+        catalogoEjercicios.add(new Ejercicio("Push Jerk", TipoEjercicio.PESAS));
+        catalogoEjercicios.add(new Ejercicio("Clean and Jerk", TipoEjercicio.PESAS));
+        catalogoEjercicios.add(new Ejercicio("Power Clean", TipoEjercicio.PESAS));
+        catalogoEjercicios.add(new Ejercicio("Hang Clean", TipoEjercicio.PESAS));
+        catalogoEjercicios.add(new Ejercicio("Snatch", TipoEjercicio.PESAS));
+        catalogoEjercicios.add(new Ejercicio("Power Snatch", TipoEjercicio.PESAS));
+        catalogoEjercicios.add(new Ejercicio("Hang Snatch", TipoEjercicio.PESAS));
+        catalogoEjercicios.add(new Ejercicio("Kettlebell Swing", TipoEjercicio.PESAS));
+        catalogoEjercicios.add(new Ejercicio("Dumbbell Snatch", TipoEjercicio.PESAS));
+        catalogoEjercicios.add(new Ejercicio("Medicine Ball Clean", TipoEjercicio.PESAS));
+
+        catalogoEjercicios.add(new Ejercicio("Air Squat", TipoEjercicio.GIMNASIA));
+        catalogoEjercicios.add(new Ejercicio("Push-up", TipoEjercicio.GIMNASIA));
+        catalogoEjercicios.add(new Ejercicio("Handstand Push-up", TipoEjercicio.GIMNASIA));
+        catalogoEjercicios.add(new Ejercicio("Pull-up", TipoEjercicio.GIMNASIA));
+        catalogoEjercicios.add(new Ejercicio("Chest-to-Bar", TipoEjercicio.GIMNASIA));
+        catalogoEjercicios.add(new Ejercicio("Bar Muscle-up", TipoEjercicio.GIMNASIA));
+        catalogoEjercicios.add(new Ejercicio("Ring Muscle-up", TipoEjercicio.GIMNASIA));
+        catalogoEjercicios.add(new Ejercicio("Toes-to-Bar", TipoEjercicio.GIMNASIA));
+        catalogoEjercicios.add(new Ejercicio("Knees-to-Elbows", TipoEjercicio.GIMNASIA));
+        catalogoEjercicios.add(new Ejercicio("Box Jump", TipoEjercicio.GIMNASIA));
+        catalogoEjercicios.add(new Ejercicio("Burpee", TipoEjercicio.GIMNASIA));
+        catalogoEjercicios.add(new Ejercicio("Burpee Box Jump Over", TipoEjercicio.GIMNASIA));
+        catalogoEjercicios.add(new Ejercicio("Pistol Squat", TipoEjercicio.GIMNASIA));
+        catalogoEjercicios.add(new Ejercicio("Rope Climb", TipoEjercicio.GIMNASIA));
+        catalogoEjercicios.add(new Ejercicio("Walking Lunge", TipoEjercicio.GIMNASIA));
+        catalogoEjercicios.add(new Ejercicio("AbMat Sit-up", TipoEjercicio.GIMNASIA));
+
+        catalogoEjercicios.add(new Ejercicio("Rowing", TipoEjercicio.CARDIO));
+        catalogoEjercicios.add(new Ejercicio("Running", TipoEjercicio.CARDIO));
+        catalogoEjercicios.add(new Ejercicio("Assault Bike", TipoEjercicio.CARDIO));
+        catalogoEjercicios.add(new Ejercicio("SkiErg", TipoEjercicio.CARDIO));
+        catalogoEjercicios.add(new Ejercicio("Single-Under", TipoEjercicio.CARDIO));
+        catalogoEjercicios.add(new Ejercicio("Double-Under", TipoEjercicio.CARDIO));
+        catalogoEjercicios.add(new Ejercicio("Wall Ball Shot", TipoEjercicio.CARDIO));
+        catalogoEjercicios.add(new Ejercicio("Shuttle Run", TipoEjercicio.CARDIO));
+    }
+
+    public List<Ejercicio> obtenerTodos () {
+        return this.catalogoEjercicios;
+    }
+
+    public List<Ejercicio> filtrarPorTipo (TipoEjercicio ejercicioBuscado) {
+        List<Ejercicio> filtrados = new ArrayList<>();
+        for (Ejercicio ejercicio : catalogoEjercicios) {
+            if (ejercicio.tipo() == ejercicioBuscado) {
+                filtrados.add(ejercicio);
+            }
+        }
+        return filtrados;
+    }
+
 }
